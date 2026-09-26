@@ -5,6 +5,8 @@
 set -euo pipefail
 
 LANG_="$1"; TEST="$2"; ARCH="$3"; CORES="$4"; DIR="$5"; OUT="$6"
+# Resolve OUT to absolute before cd'ing into the project dir.
+OUT=$(realpath -m "$OUT")
 CPUS=$(python3 -c "print(','.join(str(i) for i in range($CORES)))")
 
 cd "$DIR"

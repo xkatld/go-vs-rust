@@ -47,7 +47,7 @@ jobs:
           chmod +x scripts/run_bench.sh
           MB=$( [[ "${{ matrix.target }}" == *10m* ]] && echo 10 || echo 30 )
           scripts/run_bench.sh rust-no-lto "size-${MB}m" amd64 "${{ matrix.cores }}" \
-            "projects/${{ matrix.target }}" "result.json"
+            "projects/${{ matrix.target }}" "result-nolto.json"
 
       - name: Upload result
         uses: actions/upload-artifact@v4

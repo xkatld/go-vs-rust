@@ -28,6 +28,13 @@ jobs:
 
       - name: Render summary
         run: |
+          ls -la results/ || true
+          COUNT=$(find results -name '*.json' 2>/dev/null | wc -l)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::No result JSON artifacts found — check the bench jobs above for failures."
+            exit 1
+          fi
+          echo "Found $COUNT result file(s)"
           python3 scripts/summarize.py results/*.json > run-summary.md
           cat run-summary.md >> "$GITHUB_STEP_SUMMARY"
 
