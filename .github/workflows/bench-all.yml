@@ -1,4 +1,4 @@
-name: "Bench All: run all benchmarks + publish RESULTS.md"
+name: "Go vs Rust build benchmark"
 
 on:
   workflow_dispatch:
@@ -7,45 +7,80 @@ permissions:
   contents: write
 
 jobs:
-  size:
-    uses: ./.github/workflows/bench-size.yml
-  crypto:
-    uses: ./.github/workflows/bench-crypto.yml
-  cross:
-    uses: ./.github/workflows/bench-cross.yml
+  bench:
+    name: "Suite @ ${{ matrix.cores }} core(s)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        cores: [1, 2, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchains
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-unknown-linux-gnu
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu
+          go version
+          cargo --version
+
+      - name: Warm dependency cache
+        # Downloads happen once, outside the timed sections, so network
+        # latency does not contaminate the compile measurements.
+        run: |
+          for d in projects/rust-10m projects/rust-30m crypto/rust-crypto; do
+            (cd "$d" && cargo fetch)
+          done
+          (cd crypto/go-crypto && go mod download)
+
+      - name: Run suite
+        run: |
+          chmod +x scripts/run_bench.sh scripts/run_suite.sh
+          scripts/run_suite.sh "${{ matrix.cores }}" "res-c${{ matrix.cores }}.json"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-c${{ matrix.cores }}
+          path: res-c${{ matrix.cores }}.json
+          if-no-files-found: error
+
   summarize:
-    needs: [size, crypto, cross]
+    needs: bench
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all results
+      - name: Download results
         uses: actions/download-artifact@v4
         with:
-          pattern: result-*
+          pattern: result-c*
           merge-multiple: true
           path: results/
 
       - name: Render summary
         run: |
           ls -la results/ || true
-          COUNT=$(find results -name '*.json' 2>/dev/null | wc -l)
-          if [ "$COUNT" -eq 0 ]; then
-            echo "::error::No result JSON artifacts found — check the bench jobs above for failures."
+          FILES=$(find results -name '*.json' | sort)
+          if [ -z "$FILES" ]; then
+            echo "::error::No results — check the bench jobs above."
             exit 1
           fi
-          echo "Found $COUNT result file(s)"
-          python3 scripts/summarize.py $(find results -name '*.json' | sort) > run-summary.md
+          python3 scripts/summarize.py $FILES > run-summary.md
           cat run-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Append to RESULTS.md and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          {
-            cat run-summary.md
-            echo ""
-          } >> RESULTS.md
+          { cat run-summary.md; echo ""; } >> RESULTS.md
           git add RESULTS.md
-          git commit -m "chore: append benchmark results [skip ci]" || echo "nothing to commit"
-          git push
+          git commit -m "chore: benchmark results from run ${{ github.run_number }} [skip ci]" \
+            || { echo "nothing to commit"; exit 0; }
+          git pull --rebase --autostash origin "${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"
