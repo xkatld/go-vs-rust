@@ -44,10 +44,12 @@ jobs:
           chmod +x scripts/run_bench.sh
           MB=$( [[ "${{ matrix.target }}" == *10m* ]] && echo 10 || echo 30 )
           scripts/run_bench.sh "${{ matrix.lang }}" "cross-${MB}m" "${{ matrix.arch }}" 4 \
-            "projects/${{ matrix.target }}" "result.json"
+            "projects/${{ matrix.target }}" \
+            "res-cross-${{ matrix.target }}-${{ matrix.arch }}.json"
 
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
           name: result-cross-${{ matrix.target }}-${{ matrix.arch }}
-          path: result.json
+          path: res-*.json
+          if-no-files-found: error

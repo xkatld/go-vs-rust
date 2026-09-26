@@ -31,7 +31,8 @@ jobs:
           chmod +x scripts/run_bench.sh
           MB=$( [[ "${{ matrix.target }}" == *10m* ]] && echo 10 || echo 30 )
           scripts/run_bench.sh go "size-${MB}m" amd64 "${{ matrix.cores }}" \
-            "projects/${{ matrix.target }}" "result.json"
+            "projects/${{ matrix.target }}" \
+            "res-${{ matrix.target }}-c${{ matrix.cores }}-go.json"
 
       - name: Run benchmark (Rust, LTO on)
         if: startsWith(matrix.target, 'rust-')
@@ -39,7 +40,8 @@ jobs:
           chmod +x scripts/run_bench.sh
           MB=$( [[ "${{ matrix.target }}" == *10m* ]] && echo 10 || echo 30 )
           scripts/run_bench.sh rust-lto "size-${MB}m" amd64 "${{ matrix.cores }}" \
-            "projects/${{ matrix.target }}" "result.json"
+            "projects/${{ matrix.target }}" \
+            "res-${{ matrix.target }}-c${{ matrix.cores }}-lto.json"
 
       - name: Run benchmark (Rust, LTO off)
         if: startsWith(matrix.target, 'rust-')
@@ -47,12 +49,12 @@ jobs:
           chmod +x scripts/run_bench.sh
           MB=$( [[ "${{ matrix.target }}" == *10m* ]] && echo 10 || echo 30 )
           scripts/run_bench.sh rust-no-lto "size-${MB}m" amd64 "${{ matrix.cores }}" \
-            "projects/${{ matrix.target }}" "result-nolto.json"
+            "projects/${{ matrix.target }}" \
+            "res-${{ matrix.target }}-c${{ matrix.cores }}-nolto.json"
 
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
           name: result-${{ matrix.target }}-${{ matrix.cores }}
-          path: |
-            result.json
-            result-nolto.json
+          path: res-*.json
+          if-no-files-found: error

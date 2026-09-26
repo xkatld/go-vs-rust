@@ -35,7 +35,7 @@ jobs:
             exit 1
           fi
           echo "Found $COUNT result file(s)"
-          python3 scripts/summarize.py results/*.json > run-summary.md
+          python3 scripts/summarize.py $(find results -name '*.json' | sort) > run-summary.md
           cat run-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Append to RESULTS.md and push

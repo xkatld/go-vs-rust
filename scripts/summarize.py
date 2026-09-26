@@ -28,11 +28,31 @@ def fmt_bytes(n: int) -> str:
 
 
 def load(paths):
+    """Read result files, tolerating several JSON documents in one file.
+
+    Artifact merging can concatenate same-named files, so a single path may
+    hold more than one top-level JSON value. raw_decode walks them all.
+    """
     entries = []
+    decoder = json.JSONDecoder()
+    seen = set()
     for p in paths:
         with open(p) as f:
-            data = json.load(f)
-        entries.extend(data if isinstance(data, list) else [data])
+            text = f.read()
+        idx = 0
+        while True:
+            while idx < len(text) and text[idx].isspace():
+                idx += 1
+            if idx >= len(text):
+                break
+            data, idx = decoder.raw_decode(text, idx)
+            for e in data if isinstance(data, list) else [data]:
+                # Same job re-uploaded or duplicated by the merge: keep one.
+                key = (e["test"], e.get("arch", "-"), e["cores"], e["lang"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                entries.append(e)
     return entries
 
 

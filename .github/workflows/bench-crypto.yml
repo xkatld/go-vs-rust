@@ -29,10 +29,12 @@ jobs:
         run: |
           chmod +x scripts/run_bench.sh
           scripts/run_bench.sh "${{ matrix.lang }}" crypto amd64 "${{ matrix.cores }}" \
-            "crypto/${{ matrix.lang == 'go' && 'go-crypto' || 'rust-crypto' }}" "result.json"
+            "crypto/${{ matrix.lang == 'go' && 'go-crypto' || 'rust-crypto' }}" \
+            "res-crypto-${{ matrix.lang }}-c${{ matrix.cores }}.json"
 
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
           name: result-crypto-${{ matrix.lang }}-${{ matrix.cores }}
-          path: result.json
+          path: res-*.json
+          if-no-files-found: error
