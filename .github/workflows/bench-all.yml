@@ -1,0 +1,44 @@
+name: "Bench All: run all benchmarks + publish RESULTS.md"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  size:
+    uses: ./.github/workflows/bench-size.yml
+  crypto:
+    uses: ./.github/workflows/bench-crypto.yml
+  cross:
+    uses: ./.github/workflows/bench-cross.yml
+  summarize:
+    needs: [size, crypto, cross]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          merge-multiple: true
+          path: results/
+
+      - name: Render summary
+        run: |
+          python3 scripts/summarize.py results/*.json > run-summary.md
+          cat run-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Append to RESULTS.md and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          {
+            cat run-summary.md
+            echo ""
+          } >> RESULTS.md
+          git add RESULTS.md
+          git commit -m "chore: append benchmark results [skip ci]" || echo "nothing to commit"
+          git push

@@ -1,0 +1,3 @@
+# Payload binary files are committed as-is (deterministic content).
+assets/payload-*.bin binary
+projects/*/payload-*.bin binary

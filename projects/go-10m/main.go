@@ -1,0 +1,18 @@
+package main
+
+import (
+	_ "embed"
+	"fmt"
+	"hash/crc32"
+	"os"
+)
+
+//go:embed payload-10m.bin
+var payload []byte
+
+func main() {
+	// Touch the payload so the linker cannot strip it.
+	sum := crc32.ChecksumIEEE(payload[:1024*1024])
+	fmt.Printf("payload bytes=%d crc32=%08x\n", len(payload), sum)
+	os.Exit(0)
+}

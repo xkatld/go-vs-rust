@@ -1,0 +1,47 @@
+name: "Bench 1: Binary-size projects (10MB / 30MB)"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [go-10m, go-30m, rust-10m, rust-30m]
+        cores: [1, 2, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        if: startsWith(matrix.target, 'rust-')
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Run benchmark
+        run: |
+          chmod +x scripts/run_bench.sh
+          MB=$( [[ "${{ matrix.target }}" == *10m* ]] && echo 10 || echo 30 )
+          if [[ "${{ matrix.target }}" == go-* ]]; then LANG=go; else LANG=rust-lto; fi
+          scripts/run_bench.sh "$LANG" "size-${MB}m" amd64 "${{ matrix.cores }}" \
+            "projects/${{ matrix.target }}" "result.json"
+
+      - name: Rust no-LTO variant
+        if: startsWith(matrix.target, 'rust-')
+        run: |
+          scripts/run_bench.sh rust-no-lto "size-${MB:-10}m" amd64 "${{ matrix.cores }}" \
+            "projects/${{ matrix.target }}" "result-nolto.json"
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ matrix.target }}-${{ matrix.cores }}
+          path: |
+            result.json
+            result-nolto.json
